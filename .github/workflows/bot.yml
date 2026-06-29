@@ -4,15 +4,6 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      bot_count:
-        description: 'Number of bots'
-        type: number
-        default: 1000
-      server_ip:
-        description: 'Server IP'
-        type: string
-        default: 'pl.pvpmc.qzz.io'
 
 jobs:
   bots:
@@ -27,19 +18,8 @@ jobs:
         with:
           node-version: '18'
       
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      
       - name: Install Dependencies
-        run: |
-          npm install -g mineflayer
-          pip install mcstatus javascript
+        run: npm install
       
       - name: Run Mass Bot Join
-        run: |
-          python bot.py
-        env:
-          SERVER_IP: ${{ github.event.inputs.server_ip || 'pl.pvpmc.qzz.io' }}
-          BOT_COUNT: ${{ github.event.inputs.bot_count || 1000 }}
+        run: node bot.js    # ✅ YEH CHANGE KARO!
