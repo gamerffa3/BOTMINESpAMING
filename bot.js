@@ -1,13 +1,14 @@
-// bot.js - Mass Bot Join with Slow Delay
+// bot.js - Complete Slow Join Bot
 const mineflayer = require('mineflayer');
 
 // ============================================
-// ⚙️ CONFIGURATION - Edit these!
+// ⚙️ CONFIGURATION
 // ============================================
 const SERVER_IP = "pl.pvpmc.qzz.io";
 const SERVER_PORT = 25565;
-const BOT_COUNT = 50;
-const DELAY_MS = 3000; // 3 seconds between bots
+const BOT_COUNT = 20;  // Start slow
+const MIN_DELAY = 5000;  // Minimum 5 seconds
+const MAX_DELAY = 10000; // Maximum 10 seconds
 
 // ============================================
 // 📝 NAME GENERATOR
@@ -40,7 +41,7 @@ function generateName(botId) {
 function createBot(botId) {
     const username = generateName(botId);
     
-    console.log(`⏳ Creating bot ${botId}: ${username}`);
+    console.log(`⏳ [${new Date().toLocaleTimeString()}] Creating bot ${botId}: ${username}`);
 
     const bot = mineflayer.createBot({
         host: SERVER_IP,
@@ -50,33 +51,42 @@ function createBot(botId) {
         auth: 'offline'
     });
 
+    // ============================================
+    // 🎯 BOT EVENTS
+    // ============================================
+
     bot.on('login', () => {
-        console.log(`✅ ${username} joined!`);
+        console.log(`✅ [${new Date().toLocaleTimeString()}] ${username} joined!`);
     });
 
     bot.on('error', (err) => {
-        console.log(`❌ ${username} error: ${err.message}`);
+        console.log(`❌ [${new Date().toLocaleTimeString()}] ${username} error: ${err.message}`);
     });
 
     bot.on('end', (reason) => {
-        console.log(`🚪 ${username} left: ${reason}`);
+        console.log(`🚪 [${new Date().toLocaleTimeString()}] ${username} left: ${reason}`);
     });
 
     bot.on('kicked', (reason) => {
-        console.log(`👢 ${username} kicked: ${reason}`);
+        console.log(`👢 [${new Date().toLocaleTimeString()}] ${username} kicked: ${reason}`);
+        // Reconnect after 60 seconds with new name
         setTimeout(() => {
-            console.log(`🔄 ${username} reconnecting...`);
+            console.log(`🔄 [${new Date().toLocaleTimeString()}] ${username} reconnecting...`);
             createBot(botId);
-        }, 30000);
+        }, 60000);
     });
 
-    // Anti-AFK
+    // ============================================
+    // 🛡️ ANTI-AFK SYSTEM
+    // ============================================
     bot.on('spawn', () => {
-        console.log(`💤 ${username} spawned!`);
+        console.log(`💤 [${new Date().toLocaleTimeString()}] ${username} spawned!`);
+        
         setInterval(() => {
             try {
-                const actions = ['jump', 'sneak', 'swing'];
+                const actions = ['jump', 'sneak', 'swing', 'look'];
                 const action = actions[Math.floor(Math.random() * actions.length)];
+                
                 if (action === 'jump') {
                     bot.setControlState('jump', true);
                     setTimeout(() => bot.setControlState('jump', false), 200);
@@ -85,35 +95,101 @@ function createBot(botId) {
                     setTimeout(() => bot.setControlState('sneak', false), 1000);
                 } else if (action === 'swing') {
                     bot.swingArm('main');
+                } else if (action === 'look') {
+                    bot.look(
+                        Math.random() * 2 * Math.PI,
+                        Math.random() * Math.PI - Math.PI / 2
+                    );
                 }
-            } catch(e) {}
-        }, 30000);
+            } catch(e) {
+                // Ignore errors
+            }
+        }, 30000); // Every 30 seconds
     });
+
+    // ============================================
+    // 💬 AUTO CHAT (Optional)
+    // ============================================
+    bot.on('chat', (username, message) => {
+        if (username === bot.username) return;
+        
+        // Random responses
+        const responses = [
+            "Hello!",
+            "Hi there!",
+            "How are you?",
+            "Nice to meet you!"
+        ];
+        
+        if (Math.random() < 0.1) { // 10% chance to respond
+            const response = responses[Math.floor(Math.random() * responses.length)];
+            bot.chat(response);
+        }
+    });
+
+    return bot;
 }
 
 // ============================================
-// 🚀 MASS JOIN
+// 🚀 MASS JOIN FUNCTION
 // ============================================
 function massJoin() {
-    console.log("=".repeat(50));
+    console.log("=".repeat(60));
     console.log("🔥 MASS BOT JOINER");
-    console.log("=".repeat(50));
+    console.log("=".repeat(60));
     console.log(`🎯 Target: ${SERVER_IP}:${SERVER_PORT}`);
     console.log(`📊 Bots: ${BOT_COUNT}`);
-    console.log(`⏳ Delay: ${DELAY_MS}ms between bots`);
-    console.log("=".repeat(50));
+    console.log(`⏳ Delay: ${MIN_DELAY}-${MAX_DELAY}ms random delay between bots`);
+    console.log("=".repeat(60));
+
+    let created = 0;
+    let activeBots = 0;
 
     for (let i = 0; i < BOT_COUNT; i++) {
+        const delay = Math.floor(Math.random() * (MAX_DELAY - MIN_DELAY)) + MIN_DELAY;
+        
         setTimeout(() => {
-            createBot(i);
-            if ((i + 1) % 10 === 0) {
+            const bot = createBot(i);
+            created++;
+            activeBots++;
+            
+            // Track bot disconnect
+            bot.on('end', () => {
+                activeBots--;
+            });
+            
+            if ((i + 1) % 5 === 0) {
                 console.log(`📊 Progress: ${i+1}/${BOT_COUNT} bots created`);
+                console.log(`📊 Active bots: ${activeBots}`);
             }
-        }, i * DELAY_MS);
+        }, i * delay);
     }
+
+    // ============================================
+    // 📊 STATUS MONITOR
+    // ============================================
+    setInterval(() => {
+        console.log(`📊 [${new Date().toLocaleTimeString()}] Status: ${created}/${BOT_COUNT} created, ${activeBots} active`);
+    }, 30000); // Every 30 seconds
 
     console.log(`✅ Started creating ${BOT_COUNT} bots...`);
     console.log("🔄 Keeping bots alive...");
 }
 
+// ============================================
+// 🔥 START
+// ============================================
 massJoin();
+
+// ============================================
+// 🛑 GRACEFUL SHUTDOWN
+// ============================================
+process.on('SIGINT', () => {
+    console.log("\n🛑 Shutting down...");
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    console.log("\n🛑 Shutting down...");
+    process.exit(0);
+});
