@@ -1,0 +1,45 @@
+name: Mass Bot Join
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      bot_count:
+        description: 'Number of bots'
+        type: number
+        default: 1000
+      server_ip:
+        description: 'Server IP'
+        type: string
+        default: 'pl.pvpmc.qzz.io'
+
+jobs:
+  bots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install Dependencies
+        run: |
+          npm install -g mineflayer
+          pip install mcstatus javascript
+      
+      - name: Run Mass Bot Join
+        run: |
+          python bot.py
+        env:
+          SERVER_IP: ${{ github.event.inputs.server_ip || 'pl.pvpmc.qzz.io' }}
+          BOT_COUNT: ${{ github.event.inputs.bot_count || 1000 }}
