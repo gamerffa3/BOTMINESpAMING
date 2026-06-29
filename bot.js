@@ -1,215 +1,78 @@
-// bot.js - Proxy Mastermind Bot (FIXED)
+// bot.js - Mass Bot Join with Slow Delay
 const mineflayer = require('mineflayer');
-const { SocksClient } = require('socks');
-const axios = require('axios');
-const fs = require('fs');
 
 // ============================================
-// CONFIGURATION
+// ⚙️ CONFIGURATION - Edit these!
 // ============================================
 const SERVER_IP = "pl.pvpmc.qzz.io";
 const SERVER_PORT = 25565;
 const BOT_COUNT = 50;
+const DELAY_MS = 3000; // 3 seconds between bots
 
 // ============================================
-// PROXY LIST
+// 📝 NAME GENERATOR
 // ============================================
-const PROXY_LIST = [];
+const NAMES = [
+    "Diamond", "Creeper", "Steve", "Alex", "Herobrine",
+    "Notch", "Jeb", "Dream", "Techno", "Gamer",
+    "Noob", "Pro", "PvP", "Legend", "Warrior",
+    "Shadow", "Hunter", "Fighter", "Beast", "Titan",
+    "Star", "King", "Queen", "Lord", "Ghost",
+    "Blaze", "Wither", "Dragon", "Phoenix", "Knight",
+    "Sniper", "Sage", "Viper", "Wolf", "Hawk",
+    "Tiger", "Lion", "Eagle", "Falcon", "Strike",
+    "Boss", "Champ", "Hero", "Viking", "Demon",
+    "Angel", "Guardian", "Wizard", "Elite"
+];
 
-// ============================================
-// FETCH FREE PROXIES
-// ============================================
-async function fetchFreeProxies() {
-    console.log("Fetching free proxies...");
-    try {
-        const sources = [
-            "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt",
-            "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt"
-        ];
-        
-        const allProxies = [];
-        for (const url of sources) {
-            try {
-                const response = await axios.get(url, { timeout: 5000 });
-                const proxies = response.data.split('\n')
-                    .filter(line => line.trim() && !line.startsWith('#'))
-                    .map(line => line.trim());
-                allProxies.push(...proxies);
-                console.log(`Loaded ${proxies.length} proxies from ${url}`);
-            } catch (e) {
-                console.log(`Failed to fetch from ${url}`);
-            }
-        }
-        
-        const uniqueProxies = [...new Set(allProxies)];
-        console.log(`Total unique proxies: ${uniqueProxies.length}`);
-        return uniqueProxies;
-    } catch (e) {
-        console.log("Failed to fetch free proxies:", e.message);
-        return [];
-    }
-}
+const SUFFIXES = ["YT", "TV", "MC", "XD", "OP", "Pro", "Noob"];
 
-// ============================================
-// PROXY MANAGER CLASS
-// ============================================
-class ProxyManager {
-    constructor() {
-        this.proxies = [];
-        this.currentIndex = 0;
-        this.usedProxies = [];
-        this.failedProxies = [];
-    }
-
-    async loadProxies() {
-        try {
-            if (fs.existsSync('proxies.txt')) {
-                const data = fs.readFileSync('proxies.txt', 'utf8');
-                const lines = data.split('\n').filter(l => l.trim() && !l.startsWith('#'));
-                this.proxies = lines.map(l => {
-                    const parts = l.trim().split(':');
-                    if (parts.length === 4) {
-                        return { ip: parts[0], port: parseInt(parts[1]), username: parts[2], password: parts[3] };
-                    } else if (parts.length >= 2) {
-                        return { ip: parts[0], port: parseInt(parts[1]) };
-                    }
-                    return null;
-                }).filter(p => p !== null);
-                console.log(`Loaded ${this.proxies.length} proxies from proxies.txt`);
-                return;
-            }
-        } catch (e) {}
-
-        const freeProxies = await fetchFreeProxies();
-        this.proxies = freeProxies.map(p => {
-            const parts = p.split(':');
-            if (parts.length >= 2) {
-                return { ip: parts[0], port: parseInt(parts[1]) };
-            }
-            return null;
-        }).filter(p => p !== null);
-        
-        console.log(`Total proxies available: ${this.proxies.length}`);
-    }
-
-    getNextProxy() {
-        if (this.proxies.length === 0) return null;
-        
-        for (let i = 0; i < this.proxies.length; i++) {
-            const idx = (this.currentIndex + i) % this.proxies.length;
-            const proxy = this.proxies[idx];
-            if (!this.usedProxies.includes(idx) && !this.failedProxies.includes(idx)) {
-                this.currentIndex = (idx + 1) % this.proxies.length;
-                this.usedProxies.push(idx);
-                return proxy;
-            }
-        }
-        
-        this.usedProxies = [];
-        if (this.failedProxies.length === this.proxies.length) {
-            this.failedProxies = [];
-        }
-        return this.getNextProxy();
-    }
-
-    markFailed(index) {
-        this.failedProxies.push(index);
-    }
-
-    getStats() {
-        return {
-            total: this.proxies.length,
-            used: this.usedProxies.length,
-            failed: this.failedProxies.length,
-            available: this.proxies.length - this.failedProxies.length
-        };
-    }
-}
-
-// ============================================
-// NAME GENERATOR
-// ============================================
 function generateName(botId) {
-    const names = ["Diamond", "Creeper", "Steve", "Alex", "Herobrine", "Notch", "Jeb", "Dream", "Techno", "Gamer", "Noob", "Pro", "PvP", "Legend", "Warrior", "Shadow", "Hunter", "Fighter", "Beast", "Titan", "Star", "King", "Queen", "Lord", "Ghost", "Blaze", "Wither", "Dragon", "Phoenix", "Knight", "Sniper", "Sage", "Viper", "Wolf", "Hawk", "Tiger", "Lion", "Eagle", "Falcon", "Strike", "Boss", "Champ", "Hero", "Viking", "Demon", "Angel", "Guardian", "Wizard", "Elite"];
-    const suffixes = ["YT", "TV", "MC", "XD", "OP", "Pro", "Noob"];
-    
-    const name = names[Math.floor(Math.random() * names.length)];
-    const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+    const name = NAMES[Math.floor(Math.random() * NAMES.length)];
+    const suffix = SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)];
     const num = Math.floor(Math.random() * 9999);
     return `${name}${suffix}_${botId}`;
 }
 
 // ============================================
-// CREATE BOT WITH PROXY
+// 🤖 BOT CREATOR
 // ============================================
-function createBotWithProxy(botId, proxy, serverIp, serverPort) {
+function createBot(botId) {
     const username = generateName(botId);
     
-    console.log(`Creating bot ${botId}: ${username} with proxy ${proxy.ip}:${proxy.port}`);
-    
+    console.log(`⏳ Creating bot ${botId}: ${username}`);
+
     const bot = mineflayer.createBot({
-        host: serverIp,
-        port: serverPort,
+        host: SERVER_IP,
+        port: SERVER_PORT,
         username: username,
         version: '1.20.4',
-        auth: 'offline',
-        connect: (client) => {
-            const proxyConfig = {
-                proxy: {
-                    ipaddress: proxy.ip,
-                    port: proxy.port,
-                    type: 5
-                },
-                command: 'connect',
-                destination: {
-                    host: client.host || serverIp,
-                    port: client.port || serverPort
-                }
-            };
-            
-            if (proxy.username) {
-                proxyConfig.proxy.userId = proxy.username;
-                proxyConfig.proxy.password = proxy.password;
-            }
-            
-            SocksClient.createConnection(proxyConfig, (err, info) => {
-                if (err) {
-                    console.log(`${username} proxy error: ${err.message}`);
-                    return;
-                }
-                client.setSocket(info.socket);
-                client.emit('connect');
-            });
-        }
+        auth: 'offline'
     });
 
     bot.on('login', () => {
-        console.log(`${username} joined via proxy ${proxy.ip}:${proxy.port}`);
+        console.log(`✅ ${username} joined!`);
     });
 
     bot.on('error', (err) => {
-        console.log(`${username} error: ${err.message}`);
-        if (err.message.includes('ECONNRESET') || err.message.includes('timeout')) {
-            proxyManager.markFailed(botId % proxyManager.proxies.length);
-        }
+        console.log(`❌ ${username} error: ${err.message}`);
     });
 
     bot.on('end', (reason) => {
-        console.log(`${username} left: ${reason}`);
+        console.log(`🚪 ${username} left: ${reason}`);
     });
 
     bot.on('kicked', (reason) => {
-        console.log(`${username} kicked: ${reason}`);
+        console.log(`👢 ${username} kicked: ${reason}`);
         setTimeout(() => {
-            const newProxy = proxyManager.getNextProxy();
-            if (newProxy) {
-                console.log(`Reconnecting ${username} with new proxy...`);
-                createBotWithProxy(botId, newProxy, serverIp, serverPort);
-            }
+            console.log(`🔄 ${username} reconnecting...`);
+            createBot(botId);
         }, 30000);
     });
 
+    // Anti-AFK
     bot.on('spawn', () => {
+        console.log(`💤 ${username} spawned!`);
         setInterval(() => {
             try {
                 const actions = ['jump', 'sneak', 'swing'];
@@ -229,46 +92,28 @@ function createBotWithProxy(botId, proxy, serverIp, serverPort) {
 }
 
 // ============================================
-// MASS JOIN FUNCTION
+// 🚀 MASS JOIN
 // ============================================
-let proxyManager = new ProxyManager();
-
-async function massJoin() {
+function massJoin() {
     console.log("=".repeat(50));
-    console.log("PROXY MASTERMIND BOT");
+    console.log("🔥 MASS BOT JOINER");
     console.log("=".repeat(50));
-    console.log(`Target: ${SERVER_IP}:${SERVER_PORT}`);
-    console.log(`Bots: ${BOT_COUNT}`);
-    console.log("=".repeat(50));
-
-    await proxyManager.loadProxies();
-    
-    if (proxyManager.proxies.length === 0) {
-        console.log("No proxies available! Please add proxies to proxies.txt");
-        return;
-    }
-
-    console.log(`Proxy stats: ${proxyManager.getStats().total} total`);
+    console.log(`🎯 Target: ${SERVER_IP}:${SERVER_PORT}`);
+    console.log(`📊 Bots: ${BOT_COUNT}`);
+    console.log(`⏳ Delay: ${DELAY_MS}ms between bots`);
     console.log("=".repeat(50));
 
-    let created = 0;
     for (let i = 0; i < BOT_COUNT; i++) {
-        const proxy = proxyManager.getNextProxy();
-        if (!proxy) {
-            console.log("No more proxies available");
-            break;
-        }
-        
         setTimeout(() => {
-            createBotWithProxy(i, proxy, SERVER_IP, SERVER_PORT);
-            created++;
-            if (created % 10 === 0) {
-                console.log(`Progress: ${created}/${BOT_COUNT} bots created`);
+            createBot(i);
+            if ((i + 1) % 10 === 0) {
+                console.log(`📊 Progress: ${i+1}/${BOT_COUNT} bots created`);
             }
-        }, i * 3000);
+        }, i * DELAY_MS);
     }
 
-    console.log(`Started creating ${created} bots...`);
+    console.log(`✅ Started creating ${BOT_COUNT} bots...`);
+    console.log("🔄 Keeping bots alive...");
 }
 
-massJoin().catch(console.error);
+massJoin();
