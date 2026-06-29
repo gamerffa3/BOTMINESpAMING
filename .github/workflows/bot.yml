@@ -1,9 +1,14 @@
-name: Mass Bot Join
+name: Proxy Mastermind Bot
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      bot_count:
+        description: 'Number of bots'
+        type: number
+        default: 50
 
 jobs:
   bots:
@@ -21,5 +26,7 @@ jobs:
       - name: Install Dependencies
         run: npm install
       
-      - name: Run Mass Bot Join
-        run: node bot.js    # ✅ YEH CHANGE KARO!
+      - name: Run Proxy Bot
+        run: node bot.js
+        env:
+          BOT_COUNT: ${{ github.event.inputs.bot_count || 50 }}
